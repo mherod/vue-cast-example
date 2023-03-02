@@ -1,0 +1,26 @@
+{
+  "name": "vue-cast-example",
+  "version": "1.0.0",
+  "description": "",
+  "source": [
+    "src/index.html",
+    "src/app.ts"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "parcel src/index.html",
+    "build": "parcel build index.html",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "vue": "^3.2.47"
+  },
+  "devDependencies": {
+    "@parcel/transformer-vue": "2.8.3",
+    "parcel": "^2.8.3",
+    "prettier": "^2.8.4"
+  }
+}
