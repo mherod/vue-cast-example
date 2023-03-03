@@ -2,74 +2,71 @@
 <template>
   <div>
     <h1>Hi</h1>
-    <button @click="cast">Cast</button>
-    <button @click="play">Play</button>
-    <button @click="end">End</button>
-    <pre
-      v-text="
-        JSON.stringify(
-          $data,
-          null,
-          2
-        )
-      "
-    />
+    <h2 v-text="state"></h2>
+    <button :disabled="state !== 'ready'" @click="cast">Cast</button>
+    <button :disabled="state !== 'ready'" @click="play">Play</button>
+    <button :disabled="state !== 'ready'" @click="end">End</button>
+    <pre v-text="JSON.stringify($data, null, 2)" />
   </div>
 </template>
 
 <script lang="ts">
+import { useScriptTag } from "@vueuse/core";
+import { waitForCast } from "./cast-helper";
+
+function error(err) {
+  console.error(err);
+  this.error = `${err.message || err} during ${this.state}`;
+  this.state = "error";
+}
 
 export default {
   name: "App",
   setup() {
-    return {};
+    return {
+      castScriptTag: useScriptTag(
+        "https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"
+      ),
+      cast: null,
+    };
   },
   data() {
     return {
       state: "init",
       error: null,
       castContext: null,
-      castSession: null
+      castSession: null,
     };
   },
   async mounted() {
+    if (!window["chrome"]) {
+      this.error = "Not Chrome";
+      return;
+    }
     try {
-      this.state = "waiting";
-      await this.waitForCast();
+      this.state = "loading";
+      await this.castScriptTag.load();
       this.state = "init";
       await this.initCast();
       this.state = "ready";
       await this.cast();
       this.state = "cast";
     } catch (err) {
-      this.error(err)
+      error(err);
     }
   },
   methods: {
-    async waitForCast() {
-      return new Promise((resolve, reject) => {
-        const interval = setInterval(() => {
-          if (window["cast"] && window["cast"].framework) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 100);
-        window["__onGCastApiAvailable"] = function(loaded, errorInfo) {
-          if (loaded) {
-            clearInterval(interval);
-            resolve();
-          } else {
-            clearInterval(interval);
-            reject(errorInfo);
-          }
-        };
-      });
+    waitForCast: async function() {
+      return await waitForCast();
     },
     async initCast() {
+      this.state = "waiting";
+      this.cast = await this.waitForCast();
+      this.state = "init";
       this.castContext = window["cast"].framework.CastContext.getInstance();
       this.castContext.setOptions({
-        receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+        receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
       });
     },
     async cast() {
@@ -82,13 +79,12 @@ export default {
     },
     async play() {
       try {
-        const player = new cast.framework.RemotePlayer();
-        const controller = new cast.framework.RemotePlayerController(player);
-        const mediaInfo = new chrome.cast.media.MediaInfo(
+        const player = new this.cast.framework.RemotePlayer();
+        const controller = new this.cast.framework.RemotePlayerController(player);
+        const mediaInfo = new window.chrome.cast.media.MediaInfo(
           "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
           "video/mp4"
         );
-
       } catch (err) {
         this.error(err);
       }
@@ -101,15 +97,9 @@ export default {
         this.error(err);
       }
     },
-    error(err) {
-      console.error(err);
-      this.error = `${err.message || err} during ${this.state}`;
-      this.state = "error";
-    }
-  }
+    error,
+  },
 };
 </script>
 
-<style lang="less" scoped>
-
-</style>
+<style lang="less" scoped></style>
